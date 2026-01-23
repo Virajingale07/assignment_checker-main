@@ -2,12 +2,12 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_mail import Mail  # <--- Ensure this import is here
+from flask_mail import Mail
 
-# Initialize extensions
+# Initialize extensions at the top level
 db = SQLAlchemy()
 migrate = Migrate()
-mail = Mail() # <--- 1. DEFINE MAIL HERE (Top level)
+mail = Mail()
 
 def create_app():
     app = Flask(__name__)
@@ -26,18 +26,23 @@ def create_app():
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-        # SMTP Configuration for Brevo
+    # 3. SMTP Configuration for Brevo
     app.config['MAIL_SERVER'] = 'smtp-relay.brevo.com'
     app.config['MAIL_PORT'] = 587
     app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')  # Your Brevo Login Email
-    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')  # Your generated SMTP Key
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
     app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
+    # 4. Initialize Plugins with the app instance
+    db.init_app(app)
+    migrate.init_app(app, db)
     mail.init_app(app)
-    
+
     # 5. Register Blueprints
-    from app.routes import routes
-    app.register_blueprint(routes)
+    # We use app_context to ensure SQLAlchemy is ready for the routes
+    with app.app_context():
+        from app.routes import routes
+        app.register_blueprint(routes)
 
     return app
