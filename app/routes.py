@@ -178,25 +178,26 @@ def register():
     return render_template('register.html')
 
 
+# At the top of app/routes.py
+from app import db, mail  # Ensure mail is imported from the package
 from flask_mail import Message
-from app import mail
 
 
 def send_verification_email(user_email, otp):
     """
-    Creates and sends the verification email via SMTP.
+    Sends the OTP via the configured SMTP server.
     """
     msg = Message('Verify Your EduAI Account',
                   recipients=[user_email])
-    msg.body = f'Your 6-digit verification code is: {otp}. It will expire in 10 minutes.'
+    msg.body = f'Your 6-digit verification code is: {otp}.'
 
     try:
+        # This will now use the config from app/__init__.py
         mail.send(msg)
         return True
     except Exception as e:
-        print(f"SMTP Error: {e}")  # This will show in your terminal
+        print(f"CRITICAL MAIL ERROR: {str(e)}")
         return False
-
 @routes.route('/verify-email', methods=['GET', 'POST'])
 def verify_email():
     user_id = session.get('pending_verification_user_id')
