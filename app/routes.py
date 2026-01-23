@@ -89,6 +89,15 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
 
+        user = User.query.filter_by(username=username).first()
+
+        if user and check_password_hash(user.password_hash, password):
+            # NEW: Check if email is verified
+            if not user.is_verified:
+                session['pending_verification_user_id'] = user.id
+                flash("Please verify your email first.", "warning")
+                return redirect('/verify-email')
+
         if username == 'admin' and password == 'admin123':
             admin = User.query.filter_by(username='admin').first()
             if not admin:
@@ -119,35 +128,95 @@ def logout():
     return redirect('/login')
 
 
+import random
+from datetime import datetime, timedelta
+
+
 @routes.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        if User.query.filter_by(username=request.form.get('username')).first():
-            flash('Username taken', 'danger')
+        email = request.form.get('email')
+        username = request.form.get('username')
+
+        # Check if email or username already exists
+        if User.query.filter_by(email=email).first() or User.query.filter_by(username=username).first():
+            flash('Username or Email already registered.', 'danger')
             return redirect('/register')
 
-        role = request.form.get('role')
-        assigned_classes = []
-        if role == 'teacher' and request.form.get('class_name'):
-            assigned_classes.append({
-                "class_name": request.form.get('class_name').strip().upper(),
-                "division": request.form.get('division').strip().upper()
-            })
+        # 1. Generate 6-digit OTP
+        otp = str(random.randint(100000, 999999))
 
+        # 2. Create unverified user
         user = User(
-            username=request.form.get('username'),
+            username=username,
+            email=email,
             password_hash=generate_password_hash(request.form.get('password')),
-            role=role,
-            class_name=request.form.get('class_name'),
-            division=request.form.get('division'),
-            roll_no=request.form.get('roll_no'),
-            assigned_classes=assigned_classes
+            role=request.form.get('role'),
+            is_verified=False,  # User is locked until verified
+            otp_code=otp,
+            otp_expiry=datetime.utcnow() + timedelta(minutes=10)  # 10-minute window
         )
+
         db.session.add(user)
         db.session.commit()
-        flash('Registered!', 'success')
-        return redirect('/login')
+
+        # Replace the old flash with this:
+        if send_verification_email(email, otp):
+            flash(f"A verification code has been sent to {email}.", "info")
+        else:
+            flash("Error sending email. Please check your address.", "danger")
+
+        # Store user ID in session temporarily for the verification page
+        session['pending_verification_user_id'] = user.id
+        return redirect('/verify-email')
+
     return render_template('register.html')
+
+
+from flask_mail import Mail, Message
+
+mail = Mail()
+
+
+def send_verification_email(user_email, otp):
+    """
+    Connects to the SMTP server and sends the 6-digit OTP to the user.
+    """
+    msg = Message('Verify Your EduAI Account',
+                  sender='noreply@eduai.com',
+                  recipients=[user_email])
+    msg.body = f'Your EduAI verification code is: {otp}. It expires in 10 minutes.'
+
+    try:
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Email error: {e}")
+        return False
+
+@routes.route('/verify-email', methods=['GET', 'POST'])
+def verify_email():
+    user_id = session.get('pending_verification_user_id')
+    if not user_id:
+        return redirect('/register')
+
+    user = User.query.get(user_id)
+    if request.method == 'POST':
+        entered_otp = request.form.get('otp')
+
+        # Check if OTP matches and is not expired
+        if user.otp_code == entered_otp and datetime.utcnow() < user.otp_expiry:
+            user.is_verified = True  # Unlock account
+            user.otp_code = None  # Clear code
+            db.session.commit()
+
+            session.pop('pending_verification_user_id')  # Clean up session
+            flash("Email verified! You can now log in.", "success")
+            return redirect('/login')
+        else:
+            flash("Invalid or expired OTP. Please try again.", "danger")
+
+    return render_template('verify_email.html', email=user.email)
 
 
 @routes.route('/forgot-password', methods=['GET', 'POST'])

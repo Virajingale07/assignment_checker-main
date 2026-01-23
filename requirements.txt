@@ -13,7 +13,7 @@ Pillow
 flask
 sqlalchemy
 pdf2image
-
+Flask-Mail==0.9.1
 
 
 

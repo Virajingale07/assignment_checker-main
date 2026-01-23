@@ -7,6 +7,11 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(10), nullable=False)  # 'student', 'teacher', 'admin'
+     # New fields for Email Verification
+    email = db.Column(db.String(120), unique=True, nullable=False)  # Now required
+    is_verified = db.Column(db.Boolean, default=False)  # Access Gatekeeper
+    otp_code = db.Column(db.String(6), nullable=True)  # Temporary 6-digit code
+    otp_expiry = db.Column(db.DateTime, nullable=True)  # Code expiration
 
     # Student Fields
     roll_no = db.Column(db.String(20))
