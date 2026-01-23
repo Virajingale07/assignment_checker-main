@@ -190,30 +190,25 @@ def register():
 # At the top of app/routes.py, ensure mail is imported from the app package
 
 
-
 def send_verification_email(user_email, otp):
     """
-    Sends the OTP via the configured SMTP server.
-    Wraps the call in a try-except to prevent worker timeouts.
+    Attempts to send the OTP. If it fails or times out, it returns False
+    instead of crashing the server.
     """
-    # Safety check for credentials
     if not current_app.config.get('MAIL_PASSWORD'):
-        print("DEBUG: MAIL_PASSWORD is missing. Skipping real email.")
         return False
 
-    msg = Message('Verify Your EduAI Account',
-                  recipients=[user_email])
+    msg = Message('Verify Your EduAI Account', recipients=[user_email])
     msg.body = f'Your 6-digit verification code is: {otp}'
 
     try:
-        # This will now use the SSL settings from __init__.py
+        # This will now use the 587/TLS settings
         mail.send(msg)
         return True
     except Exception as e:
-        # If the connection fails, we log the error instead of crashing the app
-        print(f"SMTP ERROR: {str(e)}")
+        # Log the error to the Render logs without crashing the worker
+        print(f"SMTP FAILURE: {str(e)}")
         return False
-
 @routes.route('/verify-email', methods=['GET', 'POST'])
 def verify_email():
     user_id = session.get('pending_verification_user_id')
