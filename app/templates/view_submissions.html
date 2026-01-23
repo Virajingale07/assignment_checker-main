@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Submissions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-800">Submissions: {{ assignment.title }}</h2>
+                <p class="text-gray-600 mt-1">{{ assignment.class_name }} - {{ assignment.division }}</p>
+            </div>
+            <a href="/teacher/assignments" class="bg-gray-600 text-white px-5 py-2 rounded shadow hover:bg-gray-700 transition">
+                <i class="fas fa-arrow-left mr-2"></i> Back
+            </a>
+        </div>
+
+        {% if submissions %}
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="p-4 font-semibold text-gray-600">Roll No</th>
+                            <th class="p-4 font-semibold text-gray-600">Name</th>
+                            <th class="p-4 font-semibold text-gray-600 text-center">Score</th>
+                            <th class="p-4 font-semibold text-gray-600">Feedback</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for sub in submissions %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="p-4 font-mono text-blue-600">{{ sub.student.roll_no }}</td>
+                            <td class="p-4 font-bold">{{ sub.student.username }}</td>
+                            <td class="p-4 text-center">
+                                <span class="px-3 py-1 rounded-full font-bold text-sm
+                                    {% if sub.score >= 80 %} bg-green-100 text-green-800
+                                    {% elif sub.score >= 50 %} bg-yellow-100 text-yellow-800
+                                    {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {{ sub.score }}%
+                                </span>
+                            </td>
+                            <td class="p-4 text-sm text-gray-600">
+                                {% if sub.detailed_feedback %}
+                                    {% for k, v in sub.detailed_feedback.items() %}
+                                        <div><strong>{{ k }}:</strong> {{ v }}</div>
+                                    {% endfor %}
+                                {% else %}
+                                    Pending
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-20 bg-white rounded-lg shadow">
+                <p class="text-gray-500 text-lg">No submissions yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
