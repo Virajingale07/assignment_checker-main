@@ -177,11 +177,11 @@ def register():
 
 
 def send_verification_email(user_email, otp):
-    # This uses Port 443, so Render won't block it!
     api_key = current_app.config.get('MAIL_PASSWORD')
     sender_email = current_app.config.get('MAIL_USERNAME')
 
     if not api_key:
+        print("DEBUG: MAIL_PASSWORD (API Key) is missing!")
         return False
 
     url = "https://api.brevo.com/v3/smtp/email"
@@ -198,10 +198,11 @@ def send_verification_email(user_email, otp):
     }
 
     try:
+        # This is the "Magic" part—it uses Port 443 which is NEVER blocked
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         return response.status_code == 201
     except Exception as e:
-        print(f"API Error: {e}")
+        print(f"API Error: {str(e)}")
         return False
 
 @routes.route('/verify-email', methods=['GET', 'POST'])
