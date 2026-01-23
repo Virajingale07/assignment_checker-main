@@ -2,34 +2,34 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_mail import Mail  #
 
+# Initialize ONLY the extensions we are actually using
 db = SQLAlchemy()
 migrate = Migrate()
-mail = Mail()  #
 
 
 def create_app():
     app = Flask(__name__)
 
+    # 1. Basic Config
     app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_fallback')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///assignment_system.db')
+
+    # 2. Database Config
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///assignment_system.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # BREVO PORT 587 CONFIGURATION
-    app.config['MAIL_SERVER'] = 'smtp-relay.brevo.com'
-    app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USE_TLS'] = True  # MUST be True for 587
-    app.config['MAIL_USE_SSL'] = False  # MUST be False for 587
-
+    # 3. SMTP/API Config (We keep these keys for our API call in routes.py)
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
+    # 4. Bind plugins
     db.init_app(app)
     migrate.init_app(app, db)
-    mail.init_app(app)  #
 
+    # 5. Register Blueprints
     with app.app_context():
         from app.routes import routes
         app.register_blueprint(routes)

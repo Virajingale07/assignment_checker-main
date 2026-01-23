@@ -14,7 +14,9 @@ from functools import wraps
 from app.models import db, User, Assignment, Submission, Attendance
 from app.ai_evaluator import compute_score, generate_answer_key, extract_text_from_image
 
-from app import db, mail  # Ensure mail is imported from the package
+from app import db, mail
+import requests
+import json
 
 routes = Blueprint('routes', __name__)
 
@@ -187,8 +189,6 @@ def register():
 # At the top of app/routes.py, ensure mail is imported from the app package
 
 
-import requests # Ensure this is at the top of your file
-import json
 
 
 def send_verification_email(user_email, otp):
