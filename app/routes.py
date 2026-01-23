@@ -19,7 +19,6 @@ from app import db, mail  # Ensure mail is imported from the package
 from flask_mail import Message
 from flask import Blueprint, render_template, request, redirect, session, flash, url_for, send_file, current_app  # <--- Add current_app here
 
-
 routes = Blueprint('routes', __name__)
 
 
@@ -188,14 +187,18 @@ def register():
 
 # app/routes.py
 
+# At the top of app/routes.py, ensure mail is imported from the app package
+
+
+
 def send_verification_email(user_email, otp):
     """
     Sends the OTP via the configured SMTP server.
-    Safely checks for configuration to avoid worker timeouts.
+    Wraps the call in a try-except to prevent worker timeouts.
     """
-    # Now current_app is defined and will work!
+    # Safety check for credentials
     if not current_app.config.get('MAIL_PASSWORD'):
-        print("CRITICAL: MAIL_PASSWORD is missing in Environment Variables.")
+        print("DEBUG: MAIL_PASSWORD is missing. Skipping real email.")
         return False
 
     msg = Message('Verify Your EduAI Account',
@@ -203,10 +206,12 @@ def send_verification_email(user_email, otp):
     msg.body = f'Your 6-digit verification code is: {otp}'
 
     try:
+        # This will now use the SSL settings from __init__.py
         mail.send(msg)
         return True
     except Exception as e:
-        print(f"SMTP CONNECTION ERROR: {str(e)}")
+        # If the connection fails, we log the error instead of crashing the app
+        print(f"SMTP ERROR: {str(e)}")
         return False
 
 @routes.route('/verify-email', methods=['GET', 'POST'])
