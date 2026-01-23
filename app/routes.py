@@ -190,24 +190,40 @@ def register():
 # At the top of app/routes.py, ensure mail is imported from the app package
 
 
+import requests # Ensure this is at the top of your file
+import json
+
 def send_verification_email(user_email, otp):
-    """
-    Attempts to send the OTP. If it fails or times out, it returns False
-    instead of crashing the server.
-    """
-    if not current_app.config.get('MAIL_PASSWORD'):
+    # We use the same MAIL_PASSWORD from your Render settings (it's your API Key)
+    api_key = current_app.config.get('MAIL_PASSWORD')
+    sender_email = current_app.config.get('MAIL_USERNAME')
+
+    if not api_key:
         return False
 
-    msg = Message('Verify Your EduAI Account', recipients=[user_email])
-    msg.body = f'Your 6-digit verification code is: {otp}'
+    url = "https://api.brevo.com/v3/smtp/email"
+    payload = {
+        "sender": {"email": sender_email, "name": "EduAI Admin"},
+        "to": [{"email": user_email}],
+        "subject": "Verify Your EduAI Account",
+        "textContent": f"Your 6-digit verification code is: {otp}"
+    }
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": api_key  # This uses the API key directly
+    }
 
     try:
-        # This will now use the 587/TLS settings
-        mail.send(msg)
-        return True
+        # This uses Port 443, which Render NEVER blocks
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        if response.status_code == 201:
+            return True
+        else:
+            print(f"Brevo API Error: {response.text}")
+            return False
     except Exception as e:
-        # Log the error to the Render logs without crashing the worker
-        print(f"SMTP FAILURE: {str(e)}")
+        print(f"API Connection Failed: {str(e)}")
         return False
 @routes.route('/verify-email', methods=['GET', 'POST'])
 def verify_email():
