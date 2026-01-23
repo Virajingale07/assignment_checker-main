@@ -8,12 +8,37 @@ import pypdf
 from pdf2image import convert_from_bytes
 import uuid
 from datetime import datetime
+from functools import wraps
 
 # --- IMPORTS ---
 from app.models import db, User, Assignment, Submission, Attendance
 from app.ai_evaluator import compute_score, generate_answer_key, extract_text_from_image
 
 routes = Blueprint('routes', __name__)
+
+
+# --- RBAC DECORATOR ---
+def role_required(role):
+    """
+    Middleware to ensure the user is logged in and possesses the correct role.
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash("Please log in to access this page.", "danger")
+                return redirect('/login')
+
+            if session.get('role') != role:
+                flash(f"Access Denied: You do not have {role} permissions.", "danger")
+                # Redirect user to their appropriate home based on their actual role
+                return redirect(url_for(f'routes.{session.get("role")}_dashboard'))
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
 
 
 # --- HELPER: Extract Text ---
@@ -54,7 +79,8 @@ def extract_text_from_file(file_storage):
 
 # --- AUTH ROUTES ---
 @routes.route('/')
-def home(): return redirect('/login')
+def home():
+    return redirect('/login')
 
 
 @routes.route('/login', methods=['GET', 'POST'])
@@ -159,32 +185,25 @@ def reset_password(token):
 # --- ADMIN "GOD MODE" ROUTES ---
 
 @routes.route('/admin/dashboard')
+@role_required('admin')
 def admin_dashboard():
-    if session.get('role') != 'admin': return redirect('/login')
-
     users = User.query.order_by(User.id.desc()).all()
     assignments = Assignment.query.order_by(Assignment.id.desc()).all()
-
-    # --- LOGIC: Group Users by Class ---
-    class_map = {}  # Structure: { "TY-CS - A": { "students": [], "teachers": [] } }
+    class_map = {}
 
     for u in users:
-        # 1. Map Students
         if u.role == 'student' and u.class_name and u.division:
             key = f"{u.class_name} - {u.division}"
             if key not in class_map: class_map[key] = {"students": [], "teachers": []}
             class_map[key]["students"].append(u)
 
-        # 2. Map Teachers (Iterate their assigned classes)
         if u.role == 'teacher' and u.assigned_classes:
             for cls in u.assigned_classes:
                 key = f"{cls['class_name']} - {cls['division']}"
                 if key not in class_map: class_map[key] = {"students": [], "teachers": []}
-                # Avoid duplicates if teacher assigned to same class twice
                 if u not in class_map[key]["teachers"]:
                     class_map[key]["teachers"].append(u)
 
-    # Analytics
     total_users = len(users)
     total_assignments = len(assignments)
     total_submissions = Submission.query.count()
@@ -193,7 +212,7 @@ def admin_dashboard():
     return render_template('admin_dashboard.html',
                            users=users,
                            assignments=assignments,
-                           class_map=class_map,  # <--- Passing the organized data
+                           class_map=class_map,
                            stats={
                                "users": total_users,
                                "assignments": total_assignments,
@@ -202,11 +221,9 @@ def admin_dashboard():
                            })
 
 
-# --- NEW ROUTE: Admin Create User ---
 @routes.route('/admin/create-user', methods=['POST'])
+@role_required('admin')
 def admin_create_user():
-    if session.get('role') != 'admin': return redirect('/login')
-
     username = request.form.get('username')
     password = request.form.get('password')
     role = request.form.get('role')
@@ -215,7 +232,6 @@ def admin_create_user():
         flash(f"Username '{username}' already exists.", "danger")
         return redirect('/admin/dashboard')
 
-    # Prepare class data
     assigned_classes = []
     class_name = request.form.get('class_name')
     division = request.form.get('division')
@@ -226,7 +242,6 @@ def admin_create_user():
             "division": division.strip().upper()
         })
 
-    # Student specific class data
     student_class = class_name.strip().upper() if role == 'student' and class_name else None
     student_div = division.strip().upper() if role == 'student' and division else None
 
@@ -246,8 +261,8 @@ def admin_create_user():
 
 
 @routes.route('/admin/delete-user/<int:id>', methods=['POST'])
+@role_required('admin')
 def delete_user(id):
-    if session.get('role') != 'admin': return redirect('/login')
     user = User.query.get_or_404(id)
     if user.id == session['user_id']:
         flash("You cannot delete the Super Admin.", "danger")
@@ -259,8 +274,8 @@ def delete_user(id):
 
 
 @routes.route('/admin/edit-user/<int:id>', methods=['POST'])
+@role_required('admin')
 def edit_user(id):
-    if session.get('role') != 'admin': return redirect('/login')
     user = User.query.get_or_404(id)
     user.username = request.form.get('username')
     user.class_name = request.form.get('class_name')
@@ -275,8 +290,8 @@ def edit_user(id):
 
 
 @routes.route('/admin/delete-assignment/<int:id>', methods=['POST'])
+@role_required('admin')
 def admin_delete_assignment(id):
-    if session.get('role') != 'admin': return redirect('/login')
     assign = Assignment.query.get_or_404(id)
     db.session.delete(assign)
     db.session.commit()
@@ -284,17 +299,17 @@ def admin_delete_assignment(id):
     return redirect('/admin/dashboard')
 
 
-# --- TEACHER ROUTES (Unchanged) ---
+# --- TEACHER ROUTES ---
 @routes.route('/teacher/dashboard')
+@role_required('teacher')
 def teacher_dashboard():
-    if session.get('role') != 'teacher': return redirect('/login')
     teacher = User.query.get(session['user_id'])
     return render_template('teacher_dashboard.html', teacher=teacher)
 
 
 @routes.route('/teacher/update-profile', methods=['POST'])
+@role_required('teacher')
 def update_teacher_profile():
-    if session.get('role') != 'teacher': return redirect('/login')
     teacher = User.query.get(session['user_id'])
     teacher.email = request.form.get('email')
     teacher.subject = request.form.get('subject')
@@ -313,8 +328,8 @@ def update_teacher_profile():
 
 
 @routes.route('/teacher/create-assignment', methods=['GET', 'POST'])
+@role_required('teacher')
 def create_assignment():
-    if session.get('role') != 'teacher': return redirect('/login')
     teacher = User.query.get(session['user_id'])
     if request.method == 'POST':
         try:
@@ -341,8 +356,8 @@ def create_assignment():
 
 
 @routes.route('/teacher/generate-key', methods=['POST'])
+@role_required('teacher')
 def generate_key_api():
-    if session.get('role') != 'teacher': return {"error": "Unauthorized"}, 401
     file = request.files.get('file')
     if not file: return {"error": "No file"}, 400
     text = extract_text_from_file(file)
@@ -350,15 +365,15 @@ def generate_key_api():
 
 
 @routes.route('/teacher/assignments')
+@role_required('teacher')
 def view_assignments():
-    if session.get('role') != 'teacher': return redirect('/login')
     assignments = Assignment.query.filter_by(teacher_id=session['user_id']).all()
     return render_template('view_assignments.html', assignments=assignments)
 
 
 @routes.route('/teacher/assignments/<int:id>/edit', methods=['GET', 'POST'])
+@role_required('teacher')
 def edit_assignment(id):
-    if session.get('role') != 'teacher': return redirect('/login')
     assignment = Assignment.query.get_or_404(id)
     if request.method == 'POST':
         assignment.title = request.form.get('title')
@@ -372,16 +387,16 @@ def edit_assignment(id):
 
 
 @routes.route('/teacher/assignments/<int:id>/submissions')
+@role_required('teacher')
 def view_submissions(id):
-    if session.get('role') != 'teacher': return redirect('/login')
     assignment = Assignment.query.get_or_404(id)
     submissions = Submission.query.filter_by(assignment_id=id).all()
     return render_template('view_submissions.html', assignment=assignment, submissions=submissions)
 
 
 @routes.route('/teacher/delete-assignment/<int:id>', methods=['POST'])
+@role_required('teacher')
 def delete_assignment(id):
-    if session.get('role') != 'teacher': return redirect('/login')
     assign = Assignment.query.get_or_404(id)
     if assign.teacher_id == session['user_id']:
         db.session.delete(assign)
@@ -390,8 +405,8 @@ def delete_assignment(id):
 
 
 @routes.route('/teacher/attendance', methods=['GET', 'POST'])
+@role_required('teacher')
 def teacher_attendance():
-    if session.get('role') != 'teacher': return redirect('/login')
     teacher = User.query.get(session['user_id'])
     cls = request.args.get('class_name')
     div = request.args.get('div')
@@ -418,10 +433,10 @@ def teacher_attendance():
                            selected_div=div, now=datetime.now())
 
 
-# --- STUDENT ROUTES (Unchanged) ---
+# --- STUDENT ROUTES ---
 @routes.route('/student/dashboard', methods=['GET', 'POST'])
+@role_required('student')
 def student_dashboard():
-    if session.get('role') != 'student': return redirect('/login')
     student = User.query.get(session['user_id'])
     if request.method == 'POST':
         aid = request.form.get('assignment_id')
@@ -445,14 +460,19 @@ def student_dashboard():
 
 
 @routes.route('/student/download/<int:id>')
+@role_required('student')
 def download_q(id):
     assign = Assignment.query.get_or_404(id)
     return send_file(BytesIO(assign.questionnaire_file), download_name=assign.questionnaire_filename,
                      as_attachment=True)
 
 
+# --- PUBLIC/GENERAL API ---
 @routes.route('/api/chat', methods=['POST'])
 def chat_api():
+    # Minor update: Added a session check for chat security
+    if 'user_id' not in session: return {"response": "Unauthorized."}, 401
+
     data = request.json
     user_message = data.get('message', '')
     if not user_message: return {"response": "I didn't hear anything!"}
