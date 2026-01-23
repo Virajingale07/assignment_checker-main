@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, session, flash, url_for, send_file
+from flask import Blueprint, render_template, request, redirect, session, flash, url_for, send_file, current_app # <--- ADDED current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from sqlalchemy.orm.attributes import flag_modified
@@ -7,12 +7,12 @@ from io import BytesIO
 import pypdf
 from pdf2image import convert_from_bytes
 import uuid
-from datetime import datetime
+import random # <--- Added for OTP generation
+from datetime import datetime, timedelta # <--- Added timedelta for OTP expiry
 from functools import wraps
 
 # --- IMPORTS ---
-from app.models import db, User, Assignment, Submission, Attendance
-from app.ai_evaluator import compute_score, generate_answer_key, extract_text_from_image
+from app.models import db, User, Assignment, Submission, Attendance # <--- 'mail' is gone!
 
 import requests
 import json
@@ -129,11 +129,6 @@ def login():
 def logout():
     session.clear()
     return redirect('/login')
-
-
-import random
-from datetime import datetime, timedelta
-
 
 @routes.route('/register', methods=['GET', 'POST'])
 def register():
