@@ -183,21 +183,26 @@ from app import db, mail  # Ensure mail is imported from the package
 from flask_mail import Message
 
 
+# app/routes.py
+
 def send_verification_email(user_email, otp):
-    """
-    Sends the OTP via the configured SMTP server.
-    """
-    msg = Message('Verify Your EduAI Account',
-                  recipients=[user_email])
-    msg.body = f'Your 6-digit verification code is: {otp}.'
+    # Check if credentials exist before even trying
+    if not current_app.config.get('MAIL_PASSWORD'):
+        print("DEBUG: No MAIL_PASSWORD set. Skipping real email.")
+        return False
+
+    msg = Message('Verify Your EduAI Account', recipients=[user_email])
+    msg.body = f'Your code is: {otp}'
 
     try:
-        # This will now use the config from app/__init__.py
+        # If this hangs, Gunicorn kills the worker.
         mail.send(msg)
         return True
     except Exception as e:
-        print(f"CRITICAL MAIL ERROR: {str(e)}")
+        print(f"MAIL ERROR: {e}")
         return False
+
+    
 @routes.route('/verify-email', methods=['GET', 'POST'])
 def verify_email():
     user_id = session.get('pending_verification_user_id')
