@@ -14,6 +14,12 @@ from functools import wraps
 from app.models import db, User, Assignment, Submission, Attendance
 from app.ai_evaluator import compute_score, generate_answer_key, extract_text_from_image
 
+
+from app import db, mail  # Ensure mail is imported from the package
+from flask_mail import Message
+from flask import Blueprint, render_template, request, redirect, session, flash, url_for, send_file, current_app  # <--- Add current_app here
+
+
 routes = Blueprint('routes', __name__)
 
 
@@ -179,30 +185,30 @@ def register():
 
 
 # At the top of app/routes.py
-from app import db, mail  # Ensure mail is imported from the package
-from flask_mail import Message
-
 
 # app/routes.py
 
 def send_verification_email(user_email, otp):
-    # Check if credentials exist before even trying
+    """
+    Sends the OTP via the configured SMTP server.
+    Safely checks for configuration to avoid worker timeouts.
+    """
+    # Now current_app is defined and will work!
     if not current_app.config.get('MAIL_PASSWORD'):
-        print("DEBUG: No MAIL_PASSWORD set. Skipping real email.")
+        print("CRITICAL: MAIL_PASSWORD is missing in Environment Variables.")
         return False
 
-    msg = Message('Verify Your EduAI Account', recipients=[user_email])
-    msg.body = f'Your code is: {otp}'
+    msg = Message('Verify Your EduAI Account',
+                  recipients=[user_email])
+    msg.body = f'Your 6-digit verification code is: {otp}'
 
     try:
-        # If this hangs, Gunicorn kills the worker.
         mail.send(msg)
         return True
     except Exception as e:
-        print(f"MAIL ERROR: {e}")
+        print(f"SMTP CONNECTION ERROR: {str(e)}")
         return False
 
-    
 @routes.route('/verify-email', methods=['GET', 'POST'])
 def verify_email():
     user_id = session.get('pending_verification_user_id')
