@@ -27,7 +27,15 @@ def create_app():
     # 3. Init Plugins
     db.init_app(app)
     migrate.init_app(app, db)
+    # SMTP Configuration for Gmail
+    app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+    app.config['MAIL_PORT'] = 587
+    app.config['MAIL_USE_TLS'] = True
+    app.config['MAIL_USERNAME'] = 'your-email@gmail.com'  # Your Gmail
+    app.config['MAIL_PASSWORD'] = 'your-app-password'  # 16-character App Password
+    app.config['MAIL_DEFAULT_SENDER'] = 'your-email@gmail.com'
 
+    mail.init_app(app)
     # 4. Register Blueprints
     from app.routes import routes
     app.register_blueprint(routes)

@@ -159,39 +159,42 @@ def register():
 
         db.session.add(user)
         db.session.commit()
-
-        # Replace the old flash with this:
-        if send_verification_email(email, otp):
-            flash(f"A verification code has been sent to {email}.", "info")
+        
+        if send_verification_email(user.email, otp):
+            session['pending_verification_user_id'] = user.id
+            flash(f"Verification code sent to {user.email}.", "info")
+            return redirect('/verify-email')
         else:
+            # If this fails, the error in your screenshot appears
             flash("Error sending email. Please check your address.", "danger")
-
+            return redirect('/verify-email')
         # Store user ID in session temporarily for the verification page
         session['pending_verification_user_id'] = user.id
+        # Temporary bypass for testing UI logic
+        send_verification_email(user.email, otp)
+        flash(f"DEMO MODE: OTP is {otp}", "info")  # Still flash it so you can see it
         return redirect('/verify-email')
 
     return render_template('register.html')
 
 
-from flask_mail import Mail, Message
-
-mail = Mail()
+from flask_mail import Message
+from app import mail
 
 
 def send_verification_email(user_email, otp):
     """
-    Connects to the SMTP server and sends the 6-digit OTP to the user.
+    Creates and sends the verification email via SMTP.
     """
     msg = Message('Verify Your EduAI Account',
-                  sender='noreply@eduai.com',
                   recipients=[user_email])
-    msg.body = f'Your EduAI verification code is: {otp}. It expires in 10 minutes.'
+    msg.body = f'Your 6-digit verification code is: {otp}. It will expire in 10 minutes.'
 
     try:
         mail.send(msg)
         return True
     except Exception as e:
-        print(f"Email error: {e}")
+        print(f"SMTP Error: {e}")  # This will show in your terminal
         return False
 
 @routes.route('/verify-email', methods=['GET', 'POST'])
