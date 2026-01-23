@@ -14,10 +14,7 @@ from functools import wraps
 from app.models import db, User, Assignment, Submission, Attendance
 from app.ai_evaluator import compute_score, generate_answer_key, extract_text_from_image
 
-
 from app import db, mail  # Ensure mail is imported from the package
-from flask_mail import Message
-from flask import Blueprint, render_template, request, redirect, session, flash, url_for, send_file, current_app  # <--- Add current_app here
 
 routes = Blueprint('routes', __name__)
 
@@ -193,30 +190,36 @@ def register():
 import requests # Ensure this is at the top of your file
 import json
 
+
 def send_verification_email(user_email, otp):
-    # We use the same MAIL_PASSWORD from your Render settings (it's your API Key)
+    # These grab your keys from your Render Environment settings
     api_key = current_app.config.get('MAIL_PASSWORD')
     sender_email = current_app.config.get('MAIL_USERNAME')
 
     if not api_key:
+        print("CRITICAL: MAIL_PASSWORD (API Key) is missing!")
         return False
 
     url = "https://api.brevo.com/v3/smtp/email"
+
+    # This structure is required by Brevo's API
     payload = {
         "sender": {"email": sender_email, "name": "EduAI Admin"},
         "to": [{"email": user_email}],
         "subject": "Verify Your EduAI Account",
         "textContent": f"Your 6-digit verification code is: {otp}"
     }
+
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "api-key": api_key  # This uses the API key directly
+        "api-key": api_key  # This is your Brevo API Key
     }
 
     try:
-        # This uses Port 443, which Render NEVER blocks
+        # Standard web request on Port 443 — Render will NOT block this
         response = requests.post(url, json=payload, headers=headers, timeout=10)
+
         if response.status_code == 201:
             return True
         else:
@@ -225,6 +228,7 @@ def send_verification_email(user_email, otp):
     except Exception as e:
         print(f"API Connection Failed: {str(e)}")
         return False
+
 @routes.route('/verify-email', methods=['GET', 'POST'])
 def verify_email():
     user_id = session.get('pending_verification_user_id')
