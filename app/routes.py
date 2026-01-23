@@ -159,7 +159,7 @@ def register():
 
         db.session.add(user)
         db.session.commit()
-        
+
         if send_verification_email(user.email, otp):
             session['pending_verification_user_id'] = user.id
             flash(f"Verification code sent to {user.email}.", "info")
