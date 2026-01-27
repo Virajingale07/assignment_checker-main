@@ -13,6 +13,7 @@ from functools import wraps
 
 # --- IMPORTS ---
 from app.models import db, User, Assignment, Submission, Attendance # <--- 'mail' is gone!
+from app.ai_evaluator import compute_score, generate_answer_key, extract_text_from_image
 
 import requests
 import json
