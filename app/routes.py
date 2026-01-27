@@ -93,34 +93,46 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
 
+        # 1. First, check for the hardcoded Admin credentials
+        if username == 'admin' and password == 'admin123':
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                # Create admin as ALREADY VERIFIED to avoid the email check
+                admin = User(
+                    username='admin',
+                    password_hash=generate_password_hash('admin123'),
+                    role='admin',
+                    is_verified=True
+                )
+                db.session.add(admin)
+                db.session.commit()
+
+            session['user_id'] = admin.id
+            session['role'] = 'admin'
+            session['username'] = admin.username
+            return redirect('/admin/dashboard')
+
+        # 2. If not admin, look for a regular user
         user = User.query.filter_by(username=username).first()
 
         if user and check_password_hash(user.password_hash, password):
-            # NEW: Check if email is verified
+            # 3. Check verification ONLY for non-admin users or unverified accounts
             if not user.is_verified:
                 session['pending_verification_user_id'] = user.id
                 flash("Please verify your email first.", "warning")
                 return redirect('/verify-email')
 
-        if username == 'admin' and password == 'admin123':
-            admin = User.query.filter_by(username='admin').first()
-            if not admin:
-                admin = User(username='admin', password_hash=generate_password_hash('admin123'), role='admin')
-                db.session.add(admin)
-                db.session.commit()
-            session['user_id'] = admin.id
-            session['role'] = 'admin'
-            return redirect('/admin/dashboard')
-
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password_hash, password):
+            # 4. Standard login session setup
             session['user_id'] = user.id
             session['role'] = user.role
             session['username'] = user.username
 
-            if user.role == 'admin': return redirect('/admin/dashboard')
-            if user.role == 'teacher': return redirect('/teacher/dashboard')
-            return redirect('/student/dashboard')
+            if user.role == 'admin':
+                return redirect('/admin/dashboard')
+            elif user.role == 'teacher':
+                return redirect('/teacher/dashboard')
+            else:
+                return redirect('/student/dashboard')
 
         flash('Invalid credentials', 'danger')
     return render_template('login.html')
