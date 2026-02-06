@@ -88,7 +88,15 @@
 
                 if (data.error) throw new Error(data.error);
 
+                if (Array.isArray(data.questions)) {
                 currentQuestions = data.questions;
+                } else if (data.questions && Array.isArray(data.questions.questions)) {
+                  // This handles cases where the AI nests the array inside another 'questions' key
+                currentQuestions = data.questions.questions;
+                } else {
+                   // Fallback if the AI returns the array directly at the top level
+                  currentQuestions = Array.isArray(data) ? data : [];
+                }
                 renderQuestions();
                 document.getElementById('preview-section').classList.remove('hidden');
                 document.getElementById('setup-section').classList.add('opacity-50', 'pointer-events-none');

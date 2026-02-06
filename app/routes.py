@@ -633,14 +633,22 @@ def generate_test_preview():
     client = get_groq_client()
 
     prompt = f"""
-    Based on the following text, generate exactly {num_q} multiple-choice questions.
-    Format the output as a JSON LIST of objects.
-    Each object must have:
-    "question": "string",
-    "options": ["opt1", "opt2", "opt3", "opt4"],
-    "correct_index": integer (0-3)
+    Generate exactly {num_q} MCQ questions based on the provided text.
+    Return ONLY a JSON object with a single key "questions" containing a list of objects.
+    Each object must have: "question", "options" (list of 4 strings), and "correct_index" (0-3).
 
-    TEXT: {context_text[:4000]} # Limit text to stay within token limits
+    Example format:
+    {{
+      "questions": [
+        {{
+          "question": "Example?",
+          "options": ["A", "B", "C", "D"],
+          "correct_index": 0
+        }}
+      ]
+    }}
+
+    TEXT: {context_text[:4000]}
     """
 
     try:
