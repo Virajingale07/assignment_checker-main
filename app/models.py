@@ -67,3 +67,22 @@ class Attendance(db.Model):
     teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     class_name = db.Column(db.String(50))
     division = db.Column(db.String(10))
+
+class Test(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    subject = db.Column(db.String(100))
+    class_name = db.Column(db.String(50))
+    division = db.Column(db.String(10))
+    duration = db.Column(db.Integer) # in minutes
+    questions_json = db.Column(db.JSON, nullable=False) # Stores the final edited MCQs
+    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class TestResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    test_id = db.Column(db.Integer, db.ForeignKey('test.id'))
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    score = db.Column(db.Integer)
+    total_questions = db.Column(db.Integer)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)

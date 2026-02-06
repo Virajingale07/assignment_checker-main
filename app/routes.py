@@ -581,3 +581,76 @@ def chat_api():
         return {"response": completion.choices[0].message.content}
     except Exception as e:
         return {"response": "Thinking error."}
+
+
+from docx import Document
+from pptx import Presentation
+
+
+def extract_text_from_any_file(file_storage):
+    filename = file_storage.filename.lower()
+
+    # Existing PDF Logic
+    if filename.endswith('.pdf'):
+        # ... (keep your existing pypdf + OCR fallback logic here)
+        return text
+
+    # New Word Logic
+    elif filename.endswith('.docx'):
+        doc = Document(file_storage)
+        text = "\n".join([para.text for para in doc.paragraphs])
+        return text
+
+    # New PPT Logic
+    elif filename.endswith('.pptx'):
+        prs = Presentation(file_storage)
+        text = ""
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text += shape.text + " "
+        return text
+
+    # Existing Plain Text Logic
+    else:
+        return file_storage.read().decode('utf-8', errors='ignore')
+
+@routes.route('/teacher/generate-test-preview', methods=['POST'])
+@role_required('teacher')
+def generate_test_preview():
+    file = request.files.get('file')
+    num_q = request.form.get('num_questions', 5)
+    duration = request.form.get('duration', 30)
+
+    if not file:
+        return {"error": "No file uploaded"}, 400
+
+    # 1. Extract Text
+    context_text = extract_text_from_any_file(file)
+
+    # 2. Call AI
+    from app.ai_evaluator import get_groq_client
+    client = get_groq_client()
+
+    prompt = f"""
+    Based on the following text, generate exactly {num_q} multiple-choice questions.
+    Format the output as a JSON LIST of objects.
+    Each object must have:
+    "question": "string",
+    "options": ["opt1", "opt2", "opt3", "opt4"],
+    "correct_index": integer (0-3)
+
+    TEXT: {context_text[:4000]} # Limit text to stay within token limits
+    """
+
+    try:
+        completion = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.3-70b-versatile",  # Using a high-reasoning model for quality MCQs
+            response_format={"type": "json_object"}
+        )
+        questions = json.loads(completion.choices[0].message.content)
+        return {"questions": questions, "duration": duration}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
