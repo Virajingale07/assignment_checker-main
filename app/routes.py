@@ -754,16 +754,8 @@ def view_test_results(test_id):
                            })
 
 
-@routes.route('/teacher/assignments')
+@routes.route('/teacher/view-tests')
 @role_required('teacher')
-def view_assignments():
-    # 1. Fetch traditional assignments
-    assignments = Assignment.query.filter_by(teacher_id=session['user_id']).all()
-
-    # 2. Fetch the new MCQ tests
+def view_mcq_tests(): # Renamed from view_assignments to avoid the crash
     mcq_tests = Test.query.filter_by(teacher_id=session['user_id']).all()
-
-    # 3. Pass BOTH to the template
-    return render_template('view_assignments.html',
-                           assignments=assignments,
-                           mcq_tests=mcq_tests)
+    return render_template('view_assignments.html', mcq_tests=mcq_tests)
