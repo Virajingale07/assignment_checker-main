@@ -23,7 +23,7 @@
                                 <p class="text-xs text-slate-400 mt-2">Check results in dashboard</p>
                             </div>
                         {% else %}
-                            <a href="/student/take-test/{{ test.id }}" class="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 shadow-lg transition">
+                            <a href="{{ url_for('routes.take_test', test_id=test.id) }}" class="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 shadow-lg transition">
                                 Start Test
                             </a>
                         {% endif %}

@@ -710,6 +710,27 @@ def student_online_tests():
                            attempted_tests=attempted)
 
 
+@routes.route('/student/take-test/<int:test_id>')
+@role_required('student')
+def take_test(test_id):
+    # 1. Fetch the test from the database
+    test = Test.query.get_or_404(test_id)
+
+    # 2. Security Check: Ensure the student is in the correct class/division for this test
+    student = User.query.get(session['user_id'])
+    if test.class_name != student.class_name or test.division != student.division:
+        flash("You are not authorized to take this test.", "danger")
+        return redirect('/student/online-tests')
+
+    # 3. Check if the student has already attempted this test
+    existing_result = TestResult.query.filter_by(test_id=test.id, student_id=student.id).first()
+    if existing_result:
+        flash("You have already completed this test.", "info")
+        return redirect('/student/online-tests')
+
+    # 4. Render the take_test.html template you created earlier
+    return render_template('take_test.html', test=test)
+
 @routes.route('/student/submit-test/<int:test_id>', methods=['POST'])
 @role_required('student')
 def submit_test(test_id):
