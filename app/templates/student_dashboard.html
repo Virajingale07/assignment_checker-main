@@ -21,6 +21,9 @@
         <a href="/student/dashboard" class="flex items-center px-4 py-3 bg-slate-800 rounded-xl text-white shadow-md border-l-4 border-blue-500 transition">
             <i class="fas fa-home w-8"></i> Dashboard
         </a>
+        <a href="/student/online-tests" class="flex items-center px-4 py-3 {% if request.path == '/student/online-tests' %}bg-slate-800 border-l-4 border-red-500 text-white{% else %}hover:bg-slate-800 text-slate-400{% endif %} rounded-xl transition">
+        <i class="fas fa-stopwatch w-8"></i> Online Tests
+    </a>
       </nav>
       <div class="p-6">
         <a href="/logout" class="flex items-center justify-center w-full px-4 py-3 bg-red-600/20 hover:bg-red-600 text-red-200 hover:text-white rounded-xl transition">

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Results | {{ test.title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 font-sans p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">{{ test.title }} - Results</h1>
+                <p class="text-slate-500">{{ test.class_name }} {{ test.division }} | {{ test.subject }}</p>
+            </div>
+            <a href="/teacher/dashboard" class="text-indigo-600 font-bold hover:underline">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Submissions</p>
+                <p class="text-4xl font-black text-indigo-600 mt-2">{{ stats.total }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Class Average</p>
+                <p class="text-4xl font-black text-emerald-500 mt-2">{{ stats.avg }} <span class="text-lg text-slate-300">/ {{ test.questions_json|length }}</span></p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-800 text-white">
+                    <tr>
+                        <th class="p-5 font-bold uppercase text-xs">Roll No</th>
+                        <th class="p-5 font-bold uppercase text-xs">Student Name</th>
+                        <th class="p-5 font-bold uppercase text-xs">Completion Date</th>
+                        <th class="p-5 font-bold uppercase text-xs text-center">Score</th>
+                        <th class="p-5 font-bold uppercase text-xs text-center">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for result, student in results %}
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-5 font-mono font-bold text-slate-400">{{ student.roll_no }}</td>
+                        <td class="p-5 font-bold text-slate-700">{{ student.username }}</td>
+                        <td class="p-5 text-sm text-slate-500">{{ result.completed_at.strftime('%d %b, %H:%M') }}</td>
+                        <td class="p-5 text-center">
+                            <span class="text-lg font-black text-slate-800">{{ result.score }}</span>
+                            <span class="text-slate-300">/ {{ result.total_questions }}</span>
+                        </td>
+                        <td class="p-5 text-center">
+                            {% set pct = (result.score / result.total_questions * 100)|round|int %}
+                            <div class="inline-flex items-center px-4 py-1 rounded-full font-bold text-sm
+                                {% if pct >= 80 %} bg-emerald-100 text-emerald-700
+                                {% elif pct >= 50 %} bg-amber-100 text-amber-700
+                                {% else %} bg-red-100 text-red-700 {% endif %}">
+                                {{ pct }}%
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if not results %}
+            <div class="text-center py-20">
+                <i class="fas fa-user-clock text-5xl text-slate-200 mb-4"></i>
+                <p class="text-slate-400">No students have completed this test yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</body>
+</html>

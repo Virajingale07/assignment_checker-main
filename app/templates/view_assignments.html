@@ -74,6 +74,31 @@
                 </div>
             {% endif %}
         </div>
+        <h2 class="text-2xl font-bold mt-12 mb-6 text-slate-800">
+        <i class="fas fa-stopwatch mr-2 text-indigo-600"></i> Active MCQ Tests
+        </h2>
+        <div class="grid gap-4">
+            {% for test in mcq_tests %}
+     <div class="bg-white p-6 rounded-2xl shadow flex justify-between items-center border-l-4 border-indigo-500 hover:shadow-md transition">
+        <div>
+            <h3 class="font-bold text-lg text-slate-800">{{ test.title }}</h3>
+            <p class="text-sm text-slate-400">{{ test.class_name }}-{{ test.division }} | {{ test.subject }}</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/teacher/test-results/{{ test.id }}" class="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg">
+                View Marks
+            </a>
+        </div>
+     </div>
+    {% endfor %}
+
+    {% if not mcq_tests %}
+        <div class="text-center py-10 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+            <p class="text-slate-400">No MCQ tests created yet.</p>
+        </div>
+    {% endif %}
+    </div>
     </main>
+
 </body>
 </html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ test.title }} | EduAI Exam</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .no-select { user-select: none; }
+        @keyframes pulse-red { 0%, 100% { color: #ef4444; } 50% { color: #991b1b; } }
+        .timer-warning { animation: pulse-red 1s infinite; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen no-select">
+
+    <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 shadow-xl">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-white">{{ test.title }}</h1>
+                <p class="text-xs text-slate-400 uppercase tracking-widest">{{ test.subject }}</p>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="text-right">
+                    <p class="text-xs text-slate-400 uppercase font-bold">Time Remaining</p>
+                    <p id="timer" class="text-2xl font-mono font-bold text-emerald-400">00:00</p>
+                </div>
+                <button onclick="confirmSubmit()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold transition">
+                    Finish Test
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8 p-8">
+
+        <aside class="lg:col-span-1 space-y-6">
+            <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+                <h3 class="font-bold mb-4 text-slate-400 uppercase text-xs">Question Palette</h3>
+                <div class="grid grid-cols-4 gap-2" id="palette">
+                    {% for q in test.questions_json %}
+                    <button id="nav-{{loop.index0}}" onclick="jumpTo(${loop.index0})"
+                            class="w-full aspect-square rounded-lg border border-slate-600 flex items-center justify-center font-bold hover:border-indigo-500 transition">
+                        {{ loop.index }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
+                <p class="text-xs text-indigo-300"><i class="fas fa-info-circle mr-2"></i> Your progress is saved locally as you click through questions.</p>
+            </div>
+        </aside>
+
+        <main class="lg:col-span-3">
+            <div id="question-card" class="bg-slate-800 rounded-3xl p-10 border border-slate-700 shadow-2xl min-h-[400px] flex flex-col justify-between">
+                <div>
+                    <span id="q-number" class="text-indigo-400 font-bold uppercase tracking-tighter text-sm">Question 1</span>
+                    <h2 id="q-text" class="text-2xl font-medium mt-4 mb-8 leading-relaxed">Loading question...</h2>
+
+                    <div id="options-container" class="space-y-4">
+                        </div>
+                </div>
+
+                <div class="flex justify-between items-center mt-12 pt-8 border-t border-slate-700">
+                    <button id="prev-btn" onclick="prevQ()" class="text-slate-400 hover:text-white font-bold transition">
+                        <i class="fas fa-chevron-left mr-2"></i> Previous
+                    </button>
+                    <button id="next-btn" onclick="nextQ()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg">
+                        Next Question <i class="fas fa-chevron-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const questions = {{ test.questions_json | tojson }};
+        const duration = {{ test.duration }}; // Minutes
+        let currentIdx = 0;
+        let answers = new Array(questions.length).fill(null);
+        let timeLeft = duration * 60;
+
+        // Initialize Timer
+        const timerInterval = setInterval(() => {
+            timeLeft--;
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            const display = document.getElementById('timer');
+            display.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            if (timeLeft < 60) display.classList.add('timer-warning');
+            if (timeLeft <= 0) autoSubmit();
+        }, 1000);
+
+        function renderQuestion() {
+            const q = questions[currentIdx];
+            document.getElementById('q-number').innerText = `Question ${currentIdx + 1} of ${questions.length}`;
+            document.getElementById('q-text').innerText = q.question;
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+
+            q.options.forEach((opt, i) => {
+                const isSelected = answers[currentIdx] === i;
+                container.innerHTML += `
+                    <label class="block cursor-pointer group">
+                        <input type="radio" name="option" class="hidden" onclick="selectOpt(${i})" ${isSelected ? 'checked' : ''}>
+                        <div class="flex items-center p-4 rounded-2xl border ${isSelected ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800/50'} group-hover:border-slate-500 transition">
+                            <div class="w-6 h-6 rounded-full border-2 ${isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-600'} flex items-center justify-center mr-4">
+                                ${isSelected ? '<i class="fas fa-check text-[10px] text-white"></i>' : ''}
+                            </div>
+                            <span class="${isSelected ? 'text-white font-bold' : 'text-slate-300'}">${opt}</span>
+                        </div>
+                    </label>
+                `;
+            });
+
+            updatePalette();
+            document.getElementById('prev-btn').style.visibility = currentIdx === 0 ? 'hidden' : 'visible';
+            document.getElementById('next-btn').innerText = currentIdx === questions.length - 1 ? 'Finish Test' : 'Next Question';
+        }
+
+        function selectOpt(i) {
+            answers[currentIdx] = i;
+            renderQuestion();
+        }
+
+        function nextQ() {
+            if (currentIdx < questions.length - 1) {
+                currentIdx++;
+                renderQuestion();
+            } else {
+                confirmSubmit();
+            }
+        }
+
+        function prevQ() {
+            if (currentIdx > 0) {
+                currentIdx--;
+                renderQuestion();
+            }
+        }
+
+        function updatePalette() {
+            answers.forEach((ans, i) => {
+                const btn = document.getElementById(`nav-${i}`);
+                if (ans !== null) {
+                    btn.classList.add('bg-indigo-600', 'border-indigo-600', 'text-white');
+                }
+                if (i === currentIdx) {
+                    btn.classList.add('ring-2', 'ring-white', 'ring-offset-2', 'ring-offset-slate-900');
+                } else {
+                    btn.classList.remove('ring-2');
+                }
+            });
+        }
+
+        function jumpTo(i) { currentIdx = i; renderQuestion(); }
+
+        function confirmSubmit() {
+            if (confirm("Are you sure you want to end the test?")) autoSubmit();
+        }
+
+        async function autoSubmit() {
+            clearInterval(timerInterval);
+            const res = await fetch('/student/submit-test/{{ test.id }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answers: answers })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                alert(`Test Submitted! Your Score: ${data.score}/${questions.length}`);
+                window.location.href = "/student/online-tests";
+            }
+        }
+
+        renderQuestion();
+    </script>
+</body>
+</html>

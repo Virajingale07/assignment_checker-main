@@ -654,3 +654,116 @@ def generate_test_preview():
     except Exception as e:
         return {"error": str(e)}, 500
 
+
+@routes.route('/teacher/save-test', methods=['POST'])
+@role_required('teacher')
+def save_test():
+    data = request.get_json()
+    teacher = User.query.get(session['user_id'])
+
+    # We take the first class/div assigned to the teacher for this demo
+    # or you can add a dropdown in the UI to select which class this test is for.
+    target_class = teacher.assigned_classes[0] if teacher.assigned_classes else {"class_name": "GEN", "division": "A"}
+
+    new_test = Test(
+        title=data['title'],
+        duration=data['duration'],
+        questions_json=data['questions'],
+        subject=teacher.subject or "General",
+        class_name=target_class['class_name'],
+        division=target_class['division'],
+        teacher_id=teacher.id
+    )
+
+    db.session.add(new_test)
+    db.session.commit()
+    return {"status": "success"}, 200
+
+
+# Route to render the create page
+@routes.route('/teacher/create-test')
+@role_required('teacher')
+def create_test_page():
+    return render_template('create_test.html')
+
+@routes.route('/student/online-tests')
+@role_required('student')
+def student_online_tests():
+    student = User.query.get(session['user_id'])
+    # Fetch tests only for the student's specific class and division
+    tests = Test.query.filter_by(class_name=student.class_name, division=student.division).all()
+
+    # Check which tests have already been attempted
+    attempted = [r.test_id for r in TestResult.query.filter_by(student_id=student.id).all()]
+
+    return render_template('online_tests.html',
+                           student=student,
+                           tests=tests,
+                           attempted_tests=attempted)
+
+
+@routes.route('/student/submit-test/<int:test_id>', methods=['POST'])
+@role_required('student')
+def submit_test(test_id):
+    test = Test.query.get_or_404(test_id)
+    student_id = session['user_id']
+    data = request.get_json()
+    student_answers = data.get('answers')  # e.g., [0, 2, null, 1]
+
+    score = 0
+    total = len(test.questions_json)
+
+    for i, q in enumerate(test.questions_json):
+        if student_answers[i] == q['correct_index']:
+            score += 1
+
+    result = TestResult(
+        test_id=test.id,
+        student_id=student_id,
+        score=score,
+        total_questions=total
+    )
+
+    db.session.add(result)
+    db.session.commit()
+
+    return {"score": score, "total": total}, 200
+
+@routes.route('/teacher/test-results/<int:test_id>')
+@role_required('teacher')
+def view_test_results(test_id):
+    test = Test.query.get_or_404(test_id)
+    # Ensure only the teacher who created the test can see the results
+    if test.teacher_id != session['user_id']:
+        flash("Unauthorized access.", "danger")
+        return redirect('/teacher/dashboard')
+
+    # Join with User to get student names and roll numbers
+    results = db.session.query(TestResult, User).join(User, TestResult.student_id == User.id).filter(TestResult.test_id == test_id).all()
+
+    # Calculate basic stats
+    total_attempts = len(results)
+    avg_score = db.session.query(func.avg(TestResult.score)).filter(TestResult.test_id == test_id).scalar() or 0
+
+    return render_template('teacher_test_results.html',
+                           test=test,
+                           results=results,
+                           stats={
+                               "total": total_attempts,
+                               "avg": round(avg_score, 1)
+                           })
+
+
+@routes.route('/teacher/assignments')
+@role_required('teacher')
+def view_assignments():
+    # 1. Fetch traditional assignments
+    assignments = Assignment.query.filter_by(teacher_id=session['user_id']).all()
+
+    # 2. Fetch the new MCQ tests
+    mcq_tests = Test.query.filter_by(teacher_id=session['user_id']).all()
+
+    # 3. Pass BOTH to the template
+    return render_template('view_assignments.html',
+                           assignments=assignments,
+                           mcq_tests=mcq_tests)
