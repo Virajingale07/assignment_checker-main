@@ -36,7 +36,7 @@ def extract_text_from_image(image_bytes):
                 }
             ],
             # FAST MODEL for Vision
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            model="llama-3.2-11b-vision-preview",
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -53,7 +53,7 @@ def generate_answer_key(question_text):
         completion = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             # SMART MODEL for Logic
-            model="llama-4-maverick-17b-128e-instruct",
+            model="llama-3.3-70b-versatile",
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -77,7 +77,7 @@ def compute_score(student_text, answer_key):
         completion = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             # SMART MODEL for Grading
-            model="meta-llama/llama-4-maverick-17b-128e-instruct",
+            model="llama-3.3-70b-versatile",
             response_format={"type": "json_object"}
         )
         data = json.loads(completion.choices[0].message.content)
