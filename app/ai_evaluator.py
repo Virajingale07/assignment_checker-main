@@ -53,7 +53,7 @@ def generate_answer_key(question_text):
         completion = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             # SMART MODEL for Logic
-            model="llama-3.1-8b-instant",
+            model="llama-4-maverick-17b-128e-instruct",
         )
         return completion.choices[0].message.content
     except Exception as e:
