@@ -36,7 +36,7 @@ def extract_text_from_image(image_bytes):
                 }
             ],
             # FAST MODEL for Vision
-            model="llama-3.2-11b-vision-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
         )
         return completion.choices[0].message.content
     except Exception as e:
